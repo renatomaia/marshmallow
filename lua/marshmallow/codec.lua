@@ -1,7 +1,13 @@
+local memory = require "memory"
+local mempack = memory.pack
+local memunpack = memory.unpack
+
 local varint = require "marshmallow.varint"
+local varintpack = varint.pack
+local varintunpack = varint.unpack
 local intbytes = varint.intbytes
 
-local bitmaxcount = intbytes*8
+local bitmax = intbytes*8
 
 local Encoder = {
 	__index = false,
@@ -10,17 +16,36 @@ local Encoder = {
 }
 Encoder.__index = Encoder
 
-function Encoder:bits(size, value)
+local function packlebits(self, value, size)
 	local count = self.bitcount
 	local buffer = self.bitbuffer|(value<<count)
 	count = count+size
-	while count >= bitmaxcount do
-		self.stream:pack("J", buffer)
-		count = count-bitmaxcount
+	while count >= bitmax do
+		if not self:pack("<J", buffer) then return false end
+		count = count-bitmax
 		buffer = value>>(size-count)
 	end
 	self.bitcount = count
 	self.bitbuffer = buffer
+	return true
+end
+
+local function packbebits(self, value, size)
+	local count = self.bitcount+size
+	local buffer = self.bitbuffer|(value<<(bitmax-count))
+	while count >= bitmax do
+		if not self:pack(">J", buffer) then return false end
+		count = count-bitmax
+		buffer = value<<(bitmax-count)
+	end
+	self.bitcount = count
+	self.bitbuffer = buffer
+	return true
+end
+
+local function updatepack(ok, position)
+	if ok then self.position = position end
+	return ok
 end
 
 function Encoder:align(value)
@@ -28,20 +53,37 @@ function Encoder:align(value)
 end
 
 function Encoder:uintvar(value)
-	-- body
+	return updatepack(self, varintpack(self.output, self.position, value))
 end
 
-function Encoder:pack(value)
-	-- body
+function Encoder:value(format, ...)
+	return updatepack(self, mempack(self.output, format, self.position, ...))
 end
+
+--boolean = "B",
+--sint8 = "i1",
+--sint16 = "i2",
+--sint32 = "i4",
+--sint64 = "i8",
+--uint8 = "I1",
+--uint16 = "I2",
+--uint32 = "I4",
+--uint64 = "I8",
+--float32 = "f",
+--float64 = "d",
+--char = "c1",
+--wchar = "c2",
+
+
 
 local Decoder = {
 	__index = false,
 	bitcount = 0,
+	bitbuffer = 0,
 }
 Decoder.__index = Decoder
 
-function Decoder:bits(size, value)
+function Decoder:bits(size)
 	-- body
 end
 
@@ -49,11 +91,11 @@ function Decoder:align(value)
 	-- body
 end
 
-function Decoder:uintvar(value)
+function Decoder:uintvar()
 	-- body
 end
 
-function Decoder:pack(value)
+function Decoder:value(format)
 	-- body
 end
 

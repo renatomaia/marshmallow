@@ -11,12 +11,12 @@ local maskmsb = 0xfe
 local value = 1<<8
 while value > 0 do
 	intbytes = intbytes+1
-	packfmt[intbytes] = "I"..intbytes
+	packfmt[intbytes] = "<I"..intbytes
 	maskmsb = maskmsb<<8
 	value = value<<8
 end
 intbytes = intbytes+1
-packfmt[intbytes] = "J"
+packfmt[intbytes] = "<J"
 
 local varint = { intbytes = intbytes }
 
@@ -49,16 +49,16 @@ do
 			bytes = bytes+1
 		end
 		bytes = bytes+size
-		if bytes > #stream then return false, pos end
+		if bytes+pos-1 > #stream then return false, pos end
 		return pack(stream, packfmt[bytes], pos, varint, ...)
 	end
 
-	function varint.encode(stream, pos, value)
+	function varint.pack(stream, pos, value)
 		return encodeuintvar(stream, pos, value, value&0x7f, 0)
 	end
 end
 
-function varint.decode(stream, pos)
+function varint.unpack(stream, pos)
 	local byte
 	byte, pos = unpack(stream, "B", pos)
 	local value = byte&0x7f

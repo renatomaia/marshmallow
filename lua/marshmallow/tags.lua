@@ -23,12 +23,11 @@ local tags = {
 	SINTVAR  = 0x3a,
 	BOOLEAN  = 0x0b,
 	BITPAD   = 0x1b,
-	--       = 0x2b,
+	PADDING  = 0x2b,
 	--       = 0x3b,
 	NULL     = 0x0c,
 	CHAR     = 0x1c,
 	WCHAR    = 0x2c,
-	PADDING  = 0x3c,
 }
 
 do
@@ -67,6 +66,53 @@ do
 	tags.FLOAT256 = 0x4f
 end
 
+-- [[
+do
+	local columns = {}
+	local matrix = setmetatable({}, {__index = function (self, column)
+		entry = {}
+		rawset(self, column, entry)
+		return entry
+	end})
+	local names = {}
+	for name, value in pairs(tags) do
+		if names[value] ~= nil then
+			error(string.format("%02x %s %s", value, names[value], name))
+		end
+		names[value] = name
+		column = value>>4
+		matrix[value&0x0f][column] = name
+		columns[column] = true
+	end
+	for column = 0, 0x07 do
+		if columns[column] then
+			io.write(string.format("0x%-10x|", column))
+		else
+			io.write(string.format("0x%x|", column))
+		end
+	end
+	print()
+	for column = 0, 0x07 do
+		io.write(string.rep("-", columns[column] and 12 or 3), "+")
+	end
+	print()
+	for line = 0, 0x0f do
+		if rawget(matrix, line) then
+			for column = 0, 0x07 do
+				char = string.char((column<<4)+line)
+				if columns[column] then
+					cell = string.format("%-10s", matrix[line][column] or "")
+				else
+					cell = " "
+				end
+				io.write(cell, " ", string.match(char, "%g") and char or " ", "|")
+			end
+			print(string.format("%x", line))
+		end
+	end
+end
+--]]
+
 --[[
 do
 	local report = {}
@@ -76,11 +122,11 @@ do
 			error(string.format("%02x %s %s", value, names[value], name))
 		end
 		names[value] = name
-		table.insert(report, string.format("%-12s = %02x", name, value))
+		table.insert(report, {name = name, value = value})
 	end
-	table.sort(report)
-	for _, line in ipairs(report) do
-		print(line)
+	table.sort(report, function (one, other) return one.value < other.value end)
+	for _, entry in ipairs(report) do
+		print(string.format("%-12s = %02x", entry.name, entry.value))
 	end
 end
 --]]
